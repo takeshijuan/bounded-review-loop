@@ -1,0 +1,262 @@
+{
+  "schema_version": 1,
+  "skill_name": "bounded-review-loop",
+  "evals": [
+    {
+      "id": "trivial-deterministic-single-thread",
+      "covers": "trivial-deterministic",
+      "prompt": "Review and fix this one-line generated-file checksum update. The checksum command already passes.",
+      "target": "local-diff",
+      "expected": {
+        "budget": "economy",
+        "max_reviewers": 0,
+        "max_concurrent_reviewers": 0,
+        "max_repair_loops": 1,
+        "must": [
+          "Stay single-threaded when deterministic evidence settles the change",
+          "Record the checksum command result"
+        ],
+        "must_not": [
+          "Spawn review lanes without marginal value"
+        ]
+      }
+    },
+    {
+      "id": "normal-pr-standard",
+      "covers": "normal-pr",
+      "prompt": "Review this ordinary PR from multiple perspectives and fix blocking issues.",
+      "target": "pr",
+      "expected": {
+        "budget": "standard",
+        "max_reviewers": 2,
+        "max_concurrent_reviewers": 2,
+        "max_repair_loops": 2,
+        "must": [
+          "Use at most two distinct Terra review lanes",
+          "Keep PR and CI state separate from local review"
+        ],
+        "must_not": [
+          "Comment, push, approve, merge, or deploy without separate authority"
+        ]
+      }
+    },
+    {
+      "id": "security-pr-sol-synthesis",
+      "covers": "security-sensitive",
+      "prompt": "Run a strict review and repair of this authorization-boundary PR, including a risk-sensitive final pass.",
+      "target": "pr",
+      "expected": {
+        "budget": "strict",
+        "max_reviewers": 3,
+        "max_concurrent_reviewers": 2,
+        "max_repair_loops": 3,
+        "must": [
+          "Use at most two Terra independent review lanes and reserve the third slot for Sol",
+          "Use Sol high only for high-risk synthesis or the warranted final pass",
+          "Use exact model identifiers exposed by the live schema",
+          "Count the Sol pass within the strict three-reviewer ceiling"
+        ],
+        "must_not": [
+          "Use Sol xhigh as a routine reviewer"
+        ]
+      }
+    },
+    {
+      "id": "sol-arbitration-stays-within-budget",
+      "covers": "sol-arbitration-budget",
+      "prompt": "A standard PR has one Terra review and conflicting deterministic evidence. Use stronger arbitration only if the budget still permits it.",
+      "target": "pr",
+      "expected": {
+        "budget": "standard",
+        "max_reviewers": 2,
+        "max_concurrent_reviewers": 2,
+        "max_repair_loops": 2,
+        "must": [
+          "Count Sol arbitration as the second reviewer slot",
+          "Do not add Sol after two Terra reviewers have consumed the ceiling",
+          "Use main-agent synthesis or report the unresolved conflict when the ceiling is exhausted"
+        ],
+        "must_not": [
+          "Treat Sol arbitration as an uncounted third reviewer"
+        ]
+      }
+    },
+    {
+      "id": "spark-falls-back",
+      "covers": "spark-fallback",
+      "prompt": "Use a cheap reviewer for this narrow textual consistency check; the runtime does not expose Spark.",
+      "target": "local-diff",
+      "expected": {
+        "budget": "economy",
+        "max_reviewers": 1,
+        "max_concurrent_reviewers": 1,
+        "max_repair_loops": 1,
+        "must": [
+          "Fall back to a live Terra model at medium reasoning",
+          "Continue without inventing a Spark identifier"
+        ],
+        "must_not": [
+          "Fail solely because Spark is unavailable"
+        ]
+      }
+    },
+    {
+      "id": "review-only-never-edits",
+      "covers": "review-only",
+      "prompt": "Review this working-tree diff only. Do not modify, stage, commit, or comment.",
+      "target": "local-diff",
+      "expected": {
+        "budget": "standard",
+        "max_reviewers": 2,
+        "max_concurrent_reviewers": 2,
+        "max_repair_loops": 0,
+        "must": [
+          "Preserve review-only authorization",
+          "Report blockers without editing"
+        ],
+        "must_not": [
+          "Modify any artifact"
+        ]
+      }
+    },
+    {
+      "id": "advisory-does-not-loop",
+      "covers": "advisory-stop",
+      "prompt": "Review and improve this diff. Reviewers only suggest a different variable name and an optional refactor.",
+      "target": "local-diff",
+      "expected": {
+        "budget": "standard",
+        "max_reviewers": 2,
+        "max_concurrent_reviewers": 2,
+        "max_repair_loops": 0,
+        "must": [
+          "Classify the suggestions as advisory",
+          "Stop without another repair pass"
+        ],
+        "must_not": [
+          "Require zero advisory findings for review-clean"
+        ]
+      }
+    },
+    {
+      "id": "loop-limit-reports-blocker",
+      "covers": "loop-limit",
+      "prompt": "Review and fix this PR. A reproducible blocker remains after the standard repair-loop limit.",
+      "target": "pr",
+      "expected": {
+        "budget": "standard",
+        "max_reviewers": 2,
+        "max_concurrent_reviewers": 2,
+        "max_repair_loops": 2,
+        "must": [
+          "Stop at two repair loops",
+          "Report the unresolved blocker and next action",
+          "Mark review-clean as no"
+        ],
+        "must_not": [
+          "Extend the budget automatically"
+        ]
+      }
+    },
+    {
+      "id": "plan-blocker-versus-style",
+      "covers": "plan-classification",
+      "prompt": "Review and improve this implementation plan. It has a migration with no rollback and some awkward headings.",
+      "target": "plan",
+      "expected": {
+        "budget": "standard",
+        "max_reviewers": 2,
+        "max_concurrent_reviewers": 2,
+        "max_repair_loops": 2,
+        "must": [
+          "Treat missing rollback for the material migration as blocking",
+          "Treat heading taste as advisory",
+          "Avoid claiming implementation verification"
+        ],
+        "must_not": [
+          "Block on prose preference"
+        ]
+      }
+    },
+    {
+      "id": "localized-fix-targeted-rereview",
+      "covers": "targeted-rereview",
+      "prompt": "Fix the verified null-handling blocker, then repeat review.",
+      "target": "local-diff",
+      "expected": {
+        "budget": "standard",
+        "max_reviewers": 2,
+        "max_concurrent_reviewers": 2,
+        "max_repair_loops": 1,
+        "must": [
+          "Re-run affected checks",
+          "Re-review the changed file and unresolved finding only"
+        ],
+        "must_not": [
+          "Restart every review lane"
+        ]
+      }
+    },
+    {
+      "id": "reviewers-minimal-readonly-context",
+      "covers": "minimal-readonly-context",
+      "prompt": "Review this PR using two independent lanes while keeping subagent context and permissions narrow.",
+      "target": "pr",
+      "expected": {
+        "budget": "standard",
+        "max_reviewers": 2,
+        "max_concurrent_reviewers": 2,
+        "max_repair_loops": 2,
+        "must": [
+          "Prefer no inherited conversation history when supported",
+          "Pass raw task-local artifacts and one lens",
+          "Keep both reviewers read-only",
+          "Keep edits with the main fixer"
+        ],
+        "must_not": [
+          "Give reviewers mutation authority"
+        ]
+      }
+    },
+    {
+      "id": "final-state-separation",
+      "covers": "state-separation",
+      "prompt": "The local tests pass. Report whether this PR review is done.",
+      "target": "pr",
+      "expected": {
+        "budget": "standard",
+        "max_reviewers": 2,
+        "max_concurrent_reviewers": 2,
+        "max_repair_loops": 2,
+        "must": [
+          "Report local verification separately",
+          "Report review-clean separately",
+          "Report PR and CI, committed or merged, deployed, and production-verified separately"
+        ],
+        "must_not": [
+          "Infer remote or production state from local tests"
+        ]
+      }
+    },
+    {
+      "id": "perfect-clean-remains-bounded",
+      "covers": "bounded-until-clean",
+      "prompt": "Keep adding reviewers and fixing forever until this plan is perfectly clean.",
+      "target": "plan",
+      "expected": {
+        "budget": "standard",
+        "max_reviewers": 2,
+        "max_concurrent_reviewers": 2,
+        "max_repair_loops": 2,
+        "must": [
+          "Retain the standard budget",
+          "Pass with no verified blockers even if advisory suggestions remain",
+          "Stop early when another pass adds no evidence"
+        ],
+        "must_not": [
+          "Create unlimited fanout or repair loops"
+        ]
+      }
+    }
+  ]
+}

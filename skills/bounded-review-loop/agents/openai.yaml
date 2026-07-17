@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bounded Review Loop"
+  short_description: "Run bounded, evidence-based review and repair"
+  default_prompt: "Use $bounded-review-loop to review this change within an explicit budget and fix only verified blockers when authorized."

@@ -1,0 +1,9 @@
+{
+  "name": "bounded-review-loop-validation",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Locked validation tooling for the bounded-review-loop Agent Skill.",
+  "devDependencies": {
+    "skills": "1.5.17"
+  }
+}

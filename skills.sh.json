@@ -1,0 +1,11 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "Code Review",
+      "description": "Bounded, evidence-based review and repair workflows.",
+      "skills": ["bounded-review-loop"]
+    }
+  ]
+}
