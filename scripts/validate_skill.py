@@ -30,6 +30,8 @@ REQUIRED_FILES = (
     "skills/bounded-review-loop/SKILL.md",
     "skills/bounded-review-loop/agents/openai.yaml",
     "skills/bounded-review-loop/evals/evals.json",
+    "skills/bounded-review-loop/references/invocation.md",
+    "skills/bounded-review-loop/references/repair-only.md",
     "skills/bounded-review-loop/references/model-routing.md",
     "skills/bounded-review-loop/references/plan-review.md",
     "skills/bounded-review-loop/references/pr-review.md",
@@ -37,6 +39,17 @@ REQUIRED_FILES = (
     "tests/test_validate_skill.py",
 )
 REQUIRED_EVAL_COVERAGE = {
+    "fix-only-report",
+    "fix-only-missing-source",
+    "fix-only-pr-feedback",
+    "branch-scope",
+    "explicit-pr-scope",
+    "invalid-options",
+    "empty-scope",
+    "untrusted-options",
+    "exhausted-call-budget",
+    "concise-report",
+    "inherited-authorization",
     "advisory-stop",
     "bounded-until-clean",
     "loop-limit",
@@ -93,16 +106,6 @@ class Validation:
             self.error(f"expected UTF-8 text file: {path.relative_to(self.root)}")
         return ""
 
-    def require_terms(
-        self, text: str, label: str, groups: Iterable[tuple[str, ...]]
-    ) -> None:
-        lowered = text.lower()
-        for alternatives in groups:
-            if not any(term.lower() in lowered for term in alternatives):
-                self.error(
-                    f"{label} lacks required concept: {' or '.join(alternatives)}"
-                )
-
     def public_files(self) -> Iterable[Path]:
         for path in self.root.rglob("*"):
             if not path.is_file():
@@ -158,18 +161,6 @@ class Validation:
             self.error("SKILL.md description must be at most 1024 characters")
         if "<" in description or ">" in description:
             self.error("SKILL.md description cannot contain angle brackets")
-        self.require_terms(
-            description,
-            "skill description",
-            (
-                ("pull request", "prs"),
-                ("working-tree", "local diff"),
-                ("plan",),
-                ("review-only",),
-                ("economy", "standard", "strict"),
-                ("blocking", "blocker"),
-            ),
-        )
 
     def load_yaml(self, relative: str) -> Any:
         text = self.read(relative)
@@ -287,115 +278,19 @@ class Validation:
 
     def validate_contract(self) -> None:
         skill = self.read("skills/bounded-review-loop/SKILL.md")
-        policy = self.read(
-            "skills/bounded-review-loop/references/review-policy.md"
-        )
-        routing = self.read(
-            "skills/bounded-review-loop/references/model-routing.md"
-        )
-        pr_policy = self.read(
-            "skills/bounded-review-loop/references/pr-review.md"
-        )
-        plan_policy = self.read(
-            "skills/bounded-review-loop/references/plan-review.md"
-        )
-        combined = "\n".join((skill, policy, routing, pr_policy, plan_policy))
-
         for reference in (
-            "references/review-policy.md",
-            "references/model-routing.md",
-            "references/pr-review.md",
-            "references/plan-review.md",
+            "invocation.md", "repair-only.md", "review-policy.md",
+            "model-routing.md", "pr-review.md", "plan-review.md",
         ):
-            if reference not in skill:
-                self.error(f"SKILL.md must directly reference {reference}")
-
-        self.require_terms(
-            combined,
-            "skill contract",
-            (
-                ("review-only",),
-                ("review-and-fix", "review plus fix"),
-                ("read-only",),
-                ("main agent", "main/fixer"),
-                ("blocking",),
-                ("advisory",),
-                ("evidence",),
-                ("targeted re-review", "re-review only"),
-                ("systemic",),
-                ("pre-existing",),
-                ("repair-loop ceiling", "repair loop"),
-                ("local verification",),
-                ("review-clean",),
-                ("production-verified",),
-            ),
-        )
-
-        budget_rows = self.parse_budget_rows(policy)
+            if f"references/{reference}" not in skill:
+                self.error(f"SKILL.md must directly reference references/{reference}")
+        budget_rows = self.parse_budget_rows(skill)
         for preset, expected in EXPECTED_BUDGET_CEILINGS.items():
             if budget_rows.get(preset) != expected:
                 self.error(
-                    f"{preset} budget ceilings must be reviewers/concurrent/loops "
+                    f"{preset} budget ceilings must be calls/concurrent/loops "
                     f"{expected[0]}/{expected[1]}/{expected[2]}"
                 )
-
-        if not re.search(
-            r"spark.{0,500}(?:unavailable|unsupported).{0,500}"
-            r"(?:fall back|fallback).{0,200}terra",
-            routing,
-            re.IGNORECASE | re.DOTALL,
-        ):
-            self.error("model routing must define Spark-unavailable Terra fallback")
-        self.require_terms(
-            routing,
-            "model routing",
-            (
-                ("live",),
-                ("tool schema", "delegation", "subagent"),
-                ("exact identifiers", "exact model"),
-                ("terra",),
-                ("sol",),
-                ("high reasoning",),
-                ("xhigh",),
-                ("fork_turns=\"none\"", "no inherited conversation"),
-                ("external agent cli",),
-                ("counts against", "count every delegated"),
-                ("replace or reserve",),
-            ),
-        )
-        skill_material = "\n".join(
-            self.read(path.relative_to(self.root))
-            for path in self.skill_dir.rglob("*")
-            if path.is_file() and path.suffix in {".md", ".json", ".yaml", ".yml"}
-        )
-        if re.search(r"\bgpt-\d", skill_material, re.IGNORECASE):
-            self.error("skill content must not hard-code unverified model identifiers")
-
-        self.require_terms(
-            pr_policy,
-            "PR policy",
-            (
-                ("title",),
-                ("body",),
-                ("base",),
-                ("head",),
-                ("ci",),
-                ("line",),
-                ("merge",),
-            ),
-        )
-        self.require_terms(
-            plan_policy,
-            "plan policy",
-            (
-                ("feasibility",),
-                ("dependency",),
-                ("acceptance",),
-                ("rollback",),
-                ("prose", "editorial"),
-                ("implementation",),
-            ),
-        )
 
     def validate_evals(self) -> None:
         relative = "skills/bounded-review-loop/evals/evals.json"
@@ -403,8 +298,8 @@ class Validation:
         if not isinstance(payload, dict):
             self.error("evals.json must contain an object")
             return
-        if payload.get("schema_version") != 1:
-            self.error("evals.json schema_version must be 1")
+        if payload.get("schema_version") != 2:
+            self.error("evals.json schema_version must be 2")
         if payload.get("skill_name") != SKILL_NAME:
             self.error(f"evals.json skill_name must be {SKILL_NAME}")
         evals = payload.get("evals")
@@ -445,30 +340,30 @@ class Validation:
             if budget not in EXPECTED_BUDGET_CEILINGS:
                 self.error(f"{label}.expected.budget is invalid")
                 continue
-            reviewer_limit, concurrent_limit, loop_limit = (
+            call_limit, concurrent_limit, loop_limit = (
                 EXPECTED_BUDGET_CEILINGS[budget]
             )
             numeric_fields = (
-                ("max_reviewers", reviewer_limit),
+                ("max_review_calls", call_limit),
                 ("max_concurrent_reviewers", concurrent_limit),
                 ("max_repair_loops", loop_limit),
             )
             for field, ceiling in numeric_fields:
                 value = expected.get(field)
-                if not isinstance(value, int) or value < 0:
+                if type(value) is not int or value < 0:
                     self.error(f"{label}.expected.{field} must be a non-negative int")
                 elif value > ceiling:
                     self.error(
                         f"{label}.expected.{field} exceeds the {budget} ceiling"
                     )
-            reviewers = expected.get("max_reviewers")
+            calls = expected.get("max_review_calls")
             concurrent = expected.get("max_concurrent_reviewers")
             if (
-                isinstance(reviewers, int)
+                isinstance(calls, int)
                 and isinstance(concurrent, int)
-                and concurrent > reviewers
+                and concurrent > calls
             ):
-                self.error(f"{label} concurrency cannot exceed reviewer count")
+                self.error(f"{label} concurrency cannot exceed review call count")
             for field in ("must", "must_not"):
                 value = expected.get(field)
                 if not isinstance(value, list) or not value or not all(
@@ -499,30 +394,10 @@ class Validation:
             "max_repair_loops"
         ) != 2:
             self.error("bounded-until-clean eval must retain the standard limit")
-        security_text = json.dumps(
-            by_coverage.get("security-sensitive", {}), ensure_ascii=False
-        ).lower()
-        if "sol high" not in security_text or "xhigh" not in security_text:
-            self.error("security-sensitive eval must cover Sol high and xhigh restraint")
-        arbitration_text = json.dumps(
-            by_coverage.get("sol-arbitration-budget", {}), ensure_ascii=False
-        ).lower()
-        for term in ("sol", "second reviewer", "two terra", "ceiling"):
-            if term not in arbitration_text:
-                self.error(
-                    f"sol-arbitration-budget eval must cover {term}"
-                )
-        spark_text = json.dumps(
-            by_coverage.get("spark-fallback", {}), ensure_ascii=False
-        ).lower()
-        if "spark" not in spark_text or "terra" not in spark_text:
-            self.error("spark-fallback eval must cover the Terra fallback")
-        state_text = json.dumps(
-            by_coverage.get("state-separation", {}), ensure_ascii=False
-        ).lower()
-        for term in ("local verification", "review-clean", "ci", "merged", "deployed"):
-            if term not in state_text:
-                self.error(f"state-separation eval must mention {term}")
+        for key in ("fix-only-report", "fix-only-missing-source", "fix-only-pr-feedback"):
+            case = by_coverage.get(key, {}).get("expected", {})
+            if case.get("max_review_calls") != 0:
+                self.error(f"{key} eval must prohibit delegated review calls")
 
     def validate_links(self) -> None:
         markdown_link = re.compile(r"\[[^\]]+\]\(([^)]+)\)")

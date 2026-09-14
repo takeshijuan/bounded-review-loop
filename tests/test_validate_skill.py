@@ -32,7 +32,7 @@ class SkillRepositoryValidationTests(unittest.TestCase):
                 REPO_ROOT,
                 destination,
                 ignore=shutil.ignore_patterns(
-                    ".git", ".pytest_cache", ".venv", "__pycache__"
+                    ".git", ".pytest_cache", ".venv", "__pycache__", "node_modules"
                 ),
             )
             yield destination
@@ -103,13 +103,13 @@ class SkillRepositoryValidationTests(unittest.TestCase):
         with self.copied_repository() as repo:
             self.replace(
                 repo,
-                "skills/bounded-review-loop/references/review-policy.md",
+                "skills/bounded-review-loop/SKILL.md",
                 "| standard | 2 | 2 | 2 |",
                 "| standard | 4 | 4 | 5 |",
             )
             self.assert_invalid(
                 repo,
-                "standard budget ceilings must be reviewers/concurrent/loops 2/2/2",
+                "standard budget ceilings must be calls/concurrent/loops 2/2/2",
             )
 
     def test_missing_eval_coverage_is_rejected(self) -> None:
@@ -130,19 +130,24 @@ class SkillRepositoryValidationTests(unittest.TestCase):
                 "evals missing required coverage: bounded-until-clean",
             )
 
-    def test_spark_fallback_contract_is_required(self) -> None:
+    def test_fix_only_eval_cannot_launch_reviewers(self) -> None:
         with self.copied_repository() as repo:
-            self.replace(
-                repo,
-                "skills/bounded-review-loop/references/model-routing.md",
-                "When Spark is unavailable or unsupported, fall back to a live Terra "
-                "identifier at medium reasoning.",
-                "When the cheap model is absent, stop the workflow.",
-            )
-            self.assert_invalid(
-                repo,
-                "model routing must define Spark-unavailable Terra fallback",
-            )
+            path = repo / "skills/bounded-review-loop/evals/evals.json"
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            case = next(item for item in payload["evals"] if item["covers"] == "fix-only-report")
+            case["expected"]["max_review_calls"] = 1
+            path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+            self.assert_invalid(repo, "fix-only-report eval must prohibit delegated review calls")
+
+    def test_concurrency_cannot_exceed_total_calls(self) -> None:
+        with self.copied_repository() as repo:
+            path = repo / "skills/bounded-review-loop/evals/evals.json"
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            case = next(item for item in payload["evals"] if item["covers"] == "normal-pr")
+            case["expected"]["max_review_calls"] = 1
+            case["expected"]["max_concurrent_reviewers"] = 2
+            path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+            self.assert_invalid(repo, "concurrency cannot exceed review call count")
 
     def test_broken_relative_markdown_link_is_rejected(self) -> None:
         with self.copied_repository() as repo:

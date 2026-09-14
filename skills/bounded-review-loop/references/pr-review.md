@@ -1,31 +1,11 @@
 # PR Review
 
-## Resolve the PR
+Resolve the explicit `--pr <number>` (or conversational PR target) in the correct repository. Read its title, body, linked requirements, applicable AGENTS.md/CLAUDE.md, base/head SHAs, changed files, and CI state. Inspect the complete diff and relevant surrounding code. Do not replace the requested PR with the current branch's PR.
 
-Read title, body, linked issue or specification, repository instructions, changed files, base/head refs and SHAs, CI state, and relevant tests. Compare with the target branch when the patch alone does not reveal the contract.
+Closed, draft, automated, previously reviewed, or small PRs may still be explicitly requested for review. Report their state and avoid duplicate work, but do not silently skip the user's target solely on those grounds. Use blame/history and previous comments when they resolve an uncertainty; verify purported problems against the current code and filter unsupported or pre-existing findings.
 
-Freeze the reviewed head SHA. If the head changes, identify the new delta before relying on earlier findings.
+Freeze the reviewed head SHA. Point findings to tight file/line locations at that revision. Before concluding, check whether the head changed; inspect any new delta before claiming the current PR was reviewed. If required data or permissions are unavailable, report the coverage gap.
 
-## Capture the baseline
+With `--fix-only`, use [Repair only](repair-only.md) to collect and validate existing findings; skip the fresh review sweep. With either repair mode, verify the checkout belongs to the selected PR/head and preserve unrelated work as described in [Invocation](invocation.md).
 
-- Inspect the complete changed-file list and diff.
-- Note generated files, dependency or lockfile changes, migrations, public API changes, and workflow changes.
-- Run relevant deterministic checks when practical.
-- Separate failures already present on the base from failures introduced by the PR.
-- Record checks that could not run and why.
-
-## Review lanes
-
-Use tight file/line references:
-
-1. Correctness, regression, and tests.
-2. Security, reliability, authorization, data, migration, or API compatibility when the diff touches those surfaces.
-3. Architecture and maintainability only for a large systemic change and only when distinct under the strict budget.
-
-Reviewers remain read-only. The main agent deduplicates and, only when authorized, edits locally. A review-and-fix request alone does not authorize a PR comment, commit, push, approval, merge, deployment, or publication.
-
-## Verify and report
-
-After a localized fix, re-review only changed files, unresolved finding IDs, and affected tests/contracts. Repeat the full PR review only for a systemic fix or changed risk boundary.
-
-A locally clean review means required local checks passed and no verified blocker remains. It does not mean GitHub CI is green, the PR is approved or merged, a deployment occurred, or production behavior was verified. Report each state separately.
+After a localized repair, verify only the repaired surface and unresolved findings. Full re-review requires a systemic change and remaining call budget. Report relevant CI status separately from local checks, and never infer approval, merge, deployment, or production success from a clean local review. Posting comments or resolving threads requires separate existing authorization.

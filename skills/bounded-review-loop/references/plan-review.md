@@ -4,6 +4,8 @@
 
 Read the complete plan, its referenced requirements/specifications, repository constraints, and any named implementation surfaces. Freeze the file revision or content hash. Do not assume implementation work has started.
 
+For `--fix-only`, use [Repair only](repair-only.md) for the selected existing plan findings; skip the fresh evaluation below.
+
 ## Review lanes
 
 Evaluate:
