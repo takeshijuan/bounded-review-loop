@@ -38,7 +38,7 @@ Choose one mode and at most one scope. `--branch` compares committed changes on 
 
 `--fix-only` repairs existing findings from `--findings`, the selected conversation report, or existing PR feedback. It verifies findings against the current target and runs affected checks without a fresh review sweep. Missing findings are requested instead of invented. Repair completion does not claim the whole artifact is review-clean.
 
-The PR workflow takes inspiration from [Claude Code's code-review command](https://github.com/anthropics/claude-code/tree/main/plugins/code-review): inspect the requested PR and applicable instructions, substantiate findings, and keep results concise. The mode and scope options above belong to this skill; they are not claims about Claude's command flags.
+The interface takes inspiration from [Claude Code's built-in code-review command](https://code.claude.com/docs/en/code-review#review-a-diff-locally), which separates the review target from `--fix` and `--comment`. Here, `--fix` reviews then repairs, while `--fix-only` consumes existing findings. Explicit scope flags and repair-only behavior belong to this skill; they are not claims about Claude's command flags. Publishing remains a separately authorized action.
 
 ## Budgets
 
