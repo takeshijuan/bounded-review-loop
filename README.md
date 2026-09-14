@@ -20,17 +20,39 @@ Use locally from a clone:
 npx --yes skills@1.5.17 add . --skill bounded-review-loop
 ```
 
+## Usage
+
+Use skill arguments in Codex (`$bounded-review-loop`) or Claude Code (`/bounded-review-loop`); these are instructions to the agent, not a standalone executable.
+
+```text
+$bounded-review-loop --review-only --branch
+$bounded-review-loop --fix --branch --base origin/release
+$bounded-review-loop --review-only --pr 123
+$bounded-review-loop --fix-only --pr 123
+$bounded-review-loop --fix-only --uncommitted --findings review.md
+$bounded-review-loop --review-only --commit HEAD
+$bounded-review-loop --fix --plan docs/implementation-plan.md
+```
+
+Choose one mode and at most one scope. `--branch` compares committed changes on the current branch with the merge-base of the repository's default branch, or `--base`. `--pr` uses that PR's actual base/head. Explicit targets are preserved even in a dirty worktree. Natural-language requests and previously granted in-scope authorization remain supported. See [Invocation](skills/bounded-review-loop/references/invocation.md) for defaults and invalid combinations.
+
+`--fix-only` repairs existing findings from `--findings`, the selected conversation report, or existing PR feedback. It verifies findings against the current target and runs affected checks without a fresh review sweep. Missing findings are requested instead of invented. Repair completion does not claim the whole artifact is review-clean.
+
+The interface takes inspiration from [Claude Code's built-in code-review command](https://code.claude.com/docs/en/code-review#review-a-diff-locally), which separates the review target from `--fix` and `--comment`. Here, `--fix` reviews then repairs, while `--fix-only` consumes existing findings. Explicit scope flags and repair-only behavior belong to this skill; they are not claims about Claude's command flags. Publishing remains a separately authorized action.
+
 ## Budgets
 
-| Preset | Reviewers | Concurrent | Repair loops |
+| Preset | Delegated review calls, total | Concurrent calls | Repair loops |
 | --- | ---: | ---: | ---: |
-| Economy | 0–1 | 1 | 1 |
+| Economy | up to 1 | 1 | 1 |
 | Standard (default) | up to 2 | 2 | 2 |
-| Strict | up to 3 distinct lanes | 2 | 3 |
+| Strict | up to 3 | 2 | 3 |
 
-Routine review uses live-supported Terra models. Sol is reserved for materially conflicting evidence, risky synthesis, or a warranted high-risk final pass, and its call counts against the same reviewer ceiling. Spark is used only when the runtime explicitly exposes it; otherwise the skill falls back to Terra without inventing a model name.
+Every delegated initial review, follow-up, arbitration, and final pass counts, including reuse of the same agent. These are ceilings, not quotas. After calls are exhausted the main agent verifies repairs; any explicitly required independent re-review remains unmet. Repair-only does not launch reviewers. Review-only permits no repair loops.
 
-Reviewers are read-only. One main/fixer agent owns all edits. Review-only requests never edit.
+Delegation uses the runtime-supported default unless a model policy is selected. The optional [cost-oriented policy](skills/bounded-review-loop/references/model-routing.md) retains Terra/Sol/Spark preferences without imposing them on every runtime.
+
+Reviewers are read-only. The main agent owns all edits. Local repairs never imply permission to comment, commit, push, resolve threads, or merge.
 
 ## Validate
 
@@ -50,14 +72,9 @@ The root `skills.sh.json` groups the skill for its skills.sh repository page. Ob
 
 ## Safety and state reporting
 
-The skill does not grant authority to comment, commit, push, approve, merge, deploy, publish, or clean up destructively. Its final report keeps these states separate:
+Preserve existing authorization for the selected scope; review or repair alone grants no external publication or Git mutation authority. Report findings/repairs, actual mode and budget usage, relevant checks, and unmet requirements. Omit unrelated status fields while distinguishing local verification, review-clean, PR/CI, merge, deployment, and production verification whenever relevant.
 
-- local verification
-- review-clean
-- PR/CI
-- committed and merged
-- deployed
-- production-verified
+Schema and validator tests check packaging and invariants; behavioral evals require an agent run against realistic artifacts. Passing static validation alone does not establish review quality.
 
 ## License
 
